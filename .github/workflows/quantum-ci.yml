@@ -32,19 +32,25 @@ jobs:
       - name: Run minimal Qiskit transpilation
         run: |
           python - <<'PY'
+          import numpy as np
           from qiskit import QuantumCircuit, transpile
           from qiskit.quantum_info import Operator
           from qiskit.transpiler import CouplingMap
-          qc = QuantumCircuit(4)
-          qc.h(0)
-          for q in range(3):
-              qc.cx(q, q + 1)
-          out = transpile(qc, coupling_map=CouplingMap.from_line(4),
-                          basis_gates=["cx", "rz", "sx", "x"],
-                          optimization_level=2, seed_transpiler=7)
-          assert out.num_qubits == 4
-          assert out.depth() > 0
-          assert Operator(qc).equiv(Operator(out)), "Transpilation changed circuit unitary"
-          assert set(out.count_ops()).issubset({"cx", "rz", "sx", "x", "barrier"})
-          print("Qiskit transpilation + unitary-equivalence test PASS", out.count_ops())
+          from bandit_transpile import ghz, qft_c, qaoa_ring
+          circuits = [
+              ("ghz4", ghz(4)),
+              ("qft4", qft_c(4)),
+              ("qaoa4", qaoa_ring(4, 1, np.random.default_rng(11))),
+          ]
+          for name, qc in circuits:
+              out = transpile(qc, coupling_map=CouplingMap.from_grid(4, 4),
+                              basis_gates=["cx", "rz", "sx", "x"],
+                              optimization_level=2, seed_transpiler=7)
+              assert out.num_qubits >= qc.num_qubits
+              assert out.depth() > 0
+              # Compare physical output on the original logical wires; ancillas are not expected here.
+              assert out.num_qubits == qc.num_qubits, (name, out.num_qubits)
+              assert Operator(qc).equiv(Operator(out)), f"{name}: transpilation changed unitary"
+              assert set(out.count_ops()).issubset({"cx", "rz", "sx", "x", "barrier"})
+              print(name, "unitary-equivalence PASS", out.count_ops())
           PY
