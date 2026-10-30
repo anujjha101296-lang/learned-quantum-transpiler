@@ -43,14 +43,20 @@ jobs:
               ("qaoa4", qaoa_ring(4, 1, np.random.default_rng(11))),
           ]
           for name, qc in circuits:
-              out = transpile(qc, coupling_map=CouplingMap.from_grid(4, 4),
+              # Four-qubit line allows exact full-unitary comparison without
+              # introducing idle physical qubits into the Operator matrix.
+              out = transpile(qc, coupling_map=CouplingMap.from_line(4),
                               basis_gates=["cx", "rz", "sx", "x"],
                               optimization_level=2, seed_transpiler=7)
-              assert out.num_qubits >= qc.num_qubits
-              assert out.depth() > 0
-              # Compare physical output on the original logical wires; ancillas are not expected here.
               assert out.num_qubits == qc.num_qubits, (name, out.num_qubits)
+              assert out.depth() > 0
               assert Operator(qc).equiv(Operator(out)), f"{name}: transpilation changed unitary"
               assert set(out.count_ops()).issubset({"cx", "rz", "sx", "x", "barrier"})
-              print(name, "unitary-equivalence PASS", out.count_ops())
+              # Also check placement against the actual 4x4 benchmark topology.
+              grid_out = transpile(qc, coupling_map=CouplingMap.from_grid(4, 4),
+                                   basis_gates=["cx", "rz", "sx", "x"],
+                                   optimization_level=2, seed_transpiler=7)
+              assert grid_out.num_qubits == 16 and grid_out.depth() > 0
+              assert set(grid_out.count_ops()).issubset({"cx", "rz", "sx", "x", "barrier"})
+              print(name, "line-unitary + 4x4-grid mapping PASS", out.count_ops(), grid_out.count_ops())
           PY
