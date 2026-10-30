@@ -39,7 +39,7 @@ jobs:
           from bandit_transpile import ghz, qft_c, qaoa_ring
           circuits = [
               ("ghz4", ghz(4)),
-              ("qft4", qft_c(4)),
+              ("qft4", qft_c(4).decompose(reps=10)),
               ("qaoa4", qaoa_ring(4, 1, np.random.default_rng(11))),
           ]
           for name, qc in circuits:
