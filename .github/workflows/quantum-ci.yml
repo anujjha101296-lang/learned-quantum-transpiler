@@ -38,7 +38,7 @@ jobs:
           qc.h(0)
           for q in range(3):
               qc.cx(q, q + 1)
-          out = transpile(qc, coupling_map=CouplingMap.from_grid(4, 4),
+          out = transpile(qc, coupling_map=CouplingMap.from_line(4),
                           basis_gates=["cx", "rz", "sx", "x"],
                           optimization_level=2, seed_transpiler=7)
           assert out.num_qubits == 4
