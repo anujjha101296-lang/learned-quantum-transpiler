@@ -1,0 +1,47 @@
+name: Quantum Transpiler CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  qiskit-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements.txt
+      - name: Compile Python
+        run: python -m compileall -q .
+      - name: Validate saved experiment data
+        run: |
+          python - <<'PY'
+          import json
+          for p in ("arm_table.json", "results.json", "budget_results.json"):
+              with open(p, encoding="utf-8") as f:
+                  json.load(f)
+          print("Saved JSON experiment artifacts parse successfully")
+          PY
+      - name: Run minimal Qiskit transpilation
+        run: |
+          python - <<'PY'
+          from qiskit import QuantumCircuit, transpile
+          from qiskit.transpiler import CouplingMap
+          qc = QuantumCircuit(4)
+          qc.h(0)
+          for q in range(3):
+              qc.cx(q, q + 1)
+          out = transpile(qc, coupling_map=CouplingMap.from_grid(4, 4),
+                          basis_gates=["cx", "rz", "sx", "x"],
+                          optimization_level=2, seed_transpiler=7)
+          assert out.num_qubits == 4
+          assert out.depth() > 0
+          print("Qiskit transpilation smoke test PASS", out.count_ops())
+          PY
